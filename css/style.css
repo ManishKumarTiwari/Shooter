@@ -3,3 +3,12 @@ body {
   font-family: Verdana;
   font-size: 10pt;
 }
+.p{
+
+	position: absolute;
+	color:blue;
+    top: 50px;
+    left: 750px;
+    width: 100pw;
+    height: 100px;
+}
