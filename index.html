@@ -1,0 +1,408 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+  <head>
+    <title>Space Demo</title>
+    <link href="css/style.css" media="all" rel="stylesheet" type="text/css"/>
+    <script language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js"></script>
+	<script language="javascript" src="scripts/jquery.hotkeys.js"></script>	
+	<script language="javascript" src="scripts/key_status.js"></script>
+	<script language="javascript" src="scripts/util.js" ></script>
+	<script language="javascript" src="scripts/sprite.js"></script>
+	<script language="javascript" src="scripts/sound.js" ></script>	
+		
+  </head>
+  <body>
+    <div><h2>Shooter</h2></div>
+	
+	<script>
+	var SpeedLevel=2;
+	var crossed_count=0;
+	var score_count=0;
+	var Canvas_width = 700;
+	var Canvas_height = 500;
+	var CanvasElement = $("<canvas width='" + Canvas_width + "' height='" + Canvas_height + "'></canvas>");
+	var canvas = CanvasElement.get(0).getContext("2d");
+	CanvasElement.appendTo('body');	
+	/*canvas.rect(0, 0, Canvas_width, Canvas_height);
+	canvas.fillStyle = "lightpink"; 
+	canvas.fill();
+	*/
+	var score={
+				
+		draw_score:function(){
+			canvas.fillStyle = "black";
+  			canvas.font = "bold 25px Arial";
+  			canvas.fillText("Score: " + score_count, 525, 30);
+		}
+	};
+
+	//creating a player
+	player_image=Sprite("player");
+
+	var player={
+		xPos:10,
+		yPos:465,
+		color:"#00A",
+		width:30,
+		height:30,
+		//sprite = Sprite("player");
+		create:function(){
+			player_image.draw(canvas,this.xPos,this.yPos);
+			//canvas.fillStyle=this.color;
+			//canvas.fillRect(this.xPos,this.yPos,this.width,this.height);
+		}
+	};
+
+	// Game Loop --- Set Interval
+	var FPS=30;
+
+	var interval=setInterval(function(){
+		console.log("new interval started");		
+		draw();
+		update();
+	},1000/FPS);
+
+	var draw=function(){
+		canvas.clearRect(0, 0, Canvas_width, Canvas_height);
+		canvas.fillStyle = "pink";
+		canvas.beginPath();
+		canvas.fillRect(0, 0, Canvas_width, Canvas_height); 
+		canvas.closePath();
+		//canvas.fill();
+		
+		player.create();
+		score.draw_score();
+
+		playerBullets.forEach(function(bullet) {
+    		bullet.draw();
+  		});
+
+		enemies.forEach(function(enemy) {
+    		enemy.draw();
+ 		 });
+		// new enemy
+		new_enemies.forEach(function(enemy) {
+    		enemy.draw();
+ 		 });
+
+	};	
+
+	var update=function(){
+		if (keydown.space) {
+			Sound.play("shoot");
+    		player.shoot();
+  		}
+		if(keydown.left){
+			player.xPos-=5;
+		}
+		if(keydown.right){
+			player.xPos+=5;
+		}
+		player.xPos = player.xPos.clamp(0, Canvas_width - player.width);
+		/* logic in util file
+			x =	player's current position
+			min=0;
+			max=Canvas_width - player.width;
+			function clamp(x, min, max){
+				return x < min ? min : (x < max ? x : max);
+			}
+
+		*/
+		playerBullets.forEach(function(bullet) {
+    			bullet.update();
+  			});
+
+		playerBullets = playerBullets.filter(function(bullet) {
+			return bullet.active;
+		});
+
+		enemies.forEach(function(enemy) {
+    		enemy.update();
+  		});
+
+  		enemies = enemies.filter(function(enemy) {
+   			return enemy.active;
+  		});
+
+  		if(Math.random() < 0.05) { 			
+    		enemies.push(Enemy({
+    			yspeed:SpeedLevel	
+    		}));
+    		
+  		}
+
+  		//new enemy
+  		new_enemies.forEach(function(enemy) {
+    		enemy.update();
+  		});
+
+  		new_enemies = new_enemies.filter(function(enemy) {
+   			return enemy.active;
+  		});
+
+  		if(Math.random() < 0.04) {
+    		new_enemies.push(new_Enemy({
+    			yVel:SpeedLevel
+    		}));
+  		}
+
+  		checkCollision();
+
+	}; 
+	
+	//creating bullets to fire
+	var playerBullets = [];
+
+	function Bullet(I) {
+	I.active = true;
+
+	I.xVelocity = 0;
+	I.yVelocity = -I.speed;
+	I.width = 3;
+	I.height = 3;
+	I.color = "#000";
+
+	I.inBounds = function() {
+	return I.x >= 0 && I.x <= Canvas_width &&
+	  I.y >= 0 && I.y <= Canvas_height;
+	};
+
+	I.draw = function() {
+	canvas.fillStyle = this.color;
+	canvas.fillRect(this.x, this.y, this.width, this.height);
+	};
+
+	I.update = function() {
+	I.x += I.xVelocity;
+	I.y += I.yVelocity;
+
+	I.active = I.active && I.inBounds();
+	};
+
+	return I;
+	}
+
+	player.shoot = function() {
+	var bulletPosition = this.midpoint();
+	playerBullets.push(Bullet({
+	speed: 5,
+	x: bulletPosition.x,
+	y: bulletPosition.y
+	}));
+	};
+
+	player.midpoint = function() {
+	return {
+	x: this.xPos + this.width/2,
+	y: this.yPos + this.height/2
+	};
+	};
+
+
+	//enemy---------------------------------------
+	
+	enemies = [];
+
+	function Enemy(I) {
+	I =  I || {};
+
+	I.active = true;
+	I.age = Math.floor(Math.random() * 100);
+
+	//I.color = "#A2B";
+
+	I.x = Canvas_width / 4 + Math.random() * Canvas_width / 2;
+	I.y = 0;
+	I.xVelocity = 0;
+	I.yVelocity = I.yspeed;
+
+	I.width = 32;
+	I.height = 32;
+
+	I.inBounds = function() {
+	return I.x >= 0 && I.x <= Canvas_width &&
+	  I.y >= 0 && I.y <= Canvas_height;
+	};
+
+	//loading image 
+	I.ememy_image = Sprite("enemy");
+	I.draw = function() {
+	this.ememy_image.draw(canvas, this.x, this.y);
+	};
+
+  I.update = function() {
+    I.x += I.xVelocity;
+    //I.y += I.yspeed;
+    I.y += I.yVelocity;
+
+    I.xVelocity = 4 * Math.sin(I.age * Math.PI / 64);
+
+    I.age++;
+
+    I.active = I.active && I.inBounds();
+  };
+
+  return I;
+};
+
+//--------------enemy 2--------------------------
+
+	new_enemies = [];
+	function new_Enemy(I) {
+	I = I || {};
+
+	I.active = true;
+	I.age = Math.floor(Math.random() * 120);
+
+	I.color = "Black";
+
+	I.x = Canvas_width / 4 + Math.random() * Canvas_width / 2;
+	I.y = 0;
+	I.xVelocity = 0;
+	I.yVelocity = I.yVel;
+
+	I.width = 32;
+	I.height = 32;
+
+	I.inBounds = function() {
+	return I.x >= 0 && I.x <= Canvas_width &&
+	  I.y >= 0 && I.y <= Canvas_height;
+	};
+
+	//loading image 
+	I.ememies = Sprite("new_enemy");
+	I.draw = function() {
+	this.ememies.draw(canvas, this.x, this.y);
+	};
+
+	/*I.draw = function() {
+	canvas.fillStyle = this.color;
+	canvas.fillRect(this.x, this.y, this.width, this.height);
+	};*/
+
+	I.update = function() {
+	I.x += I.xVelocity;
+	I.y += I.yVelocity;
+
+	I.xVelocity = 4 * Math.sin(I.age * Math.PI / 64);
+
+	I.age++;
+
+	I.active = I.active && I.inBounds();
+	};
+
+	return I;
+	};
+
+//-------------collision-------------------------
+	function collides(a,b){
+		  return a.x < b.x + b.width &&
+         a.x + a.width > b.x &&
+         a.y < b.y + b.height &&
+         a.y + a.height > b.y;
+	}
+
+	function collidesPlayer(a,b){
+		  return a.x < b.xPos + b.width &&
+         a.x + a.width > b.xPos &&
+         a.y < b.yPos + b.height &&
+         a.y + a.height > b.yPos;
+	}
+
+	function has_Crossed_Player(a,b){
+			if(a.y+a.height>=b.yPos){
+				return true;
+			}
+		return false;
+	}
+
+	function checkCollision(){
+		playerBullets.forEach(function(bullet){
+			enemies.forEach(function(enemies){
+				if(collides(bullet,enemies)){
+				enemies.active=false;
+				Sound.play("explosion");
+				bullet.active=false;
+				score_count+=10;
+					// Increase the level of the game after every 300 score
+  					if(Number.isInteger(score_count/300)){
+						SpeedLevel+=1;
+					}
+
+				}
+			});
+		});
+		
+		// for older enemy if it crosses 3 times---
+		enemies.forEach(function(enemy){
+    			if(has_Crossed_Player(enemy,player)) {   				
+    				crossed_count+=1;
+     				enemy.active=false;
+     				console.log(crossed_count,	"enemy has crossed the player");
+     				Sound.play("explosion");
+     				if(crossed_count==3) {
+     				game_over();
+     				}
+    			}
+  			});	
+
+
+
+		//for older enemy --- if player collides
+			enemies.forEach(function(enemy){
+    			if(collidesPlayer(enemy,player)) {
+    				Sound.play("explosion");
+     				enemy.active=false;  
+     				game_over();	
+    			}
+  			});
+
+		//for new_enemy if bullet and enemy collides----
+
+		playerBullets.forEach(function(bullet){
+			new_enemies.forEach(function(enemies){
+				if(collides(bullet,enemies)){
+				enemies.active=false;
+				Sound.play("explosion");
+				bullet.active=false;
+				score_count+=20;
+					// Increase the level of the game after every 300 score
+  					if(Number.isInteger(score_count/300)){
+						SpeedLevel+=1;
+					}				
+				}
+			});
+		});
+
+  		//-------for new_enemy if player collides------
+  		new_enemies.forEach(function(enemy){
+    			if(collidesPlayer(enemy,player)) {
+    				Sound.play("explosion");
+     				enemy.active=false;  
+     				game_over();	
+    			}
+  			});	
+  		//for new enemy if ememy crosses 3 times---------
+  		new_enemies.forEach(function(enemy){
+    			if(has_Crossed_Player(enemy,player)) {
+    				crossed_count+=1;
+     				enemy.active=false;
+     				Sound.play("explosion");
+     				if(crossed_count==3) {
+     				game_over();
+     				}
+    			}
+  			});
+		
+	}
+
+	function game_over(){
+		clearInterval(interval);
+     	setTimeout(function(){
+  		alert("Game over : You Lose");
+     	},100);
+	}
+	</script>
+
+  </body>
+</html>
